@@ -27,7 +27,7 @@ LL r, c, n;
 
 struct Node {
 	Node *ch[2], *fa;
-	LL data1, data2, sum1, sum2, sz;
+	LL data1, data2, sum1, sum2, sum3, sz;
 
 	void clear();
 	void update();
@@ -43,10 +43,10 @@ void Node::rotate()
 	Node *pa = fa;
 	fa = pa -> fa; pa -> fa = this;
 	if (fa != NULL) {
-		bool t = fa -> ch[0] == pa ? 0 : 1;
+		bool t = (fa -> ch[0] == pa ? 0 : 1);
 		fa -> ch[t] = this;
 	}
-	bool t = pa -> ch[0] == this ? 0 : 1;
+	bool t = (pa -> ch[0] == this ? 0 : 1);
 	Node *chd = ch[t ^ 1];
 	ch[t ^ 1] = pa; pa -> ch[t] = chd;
 	if (chd != NULL) chd -> fa = pa;
@@ -57,7 +57,7 @@ void Node::splay(Node *top)
 {
 	while (fa != top) {
 		if (fa -> fa != top) {
-			bool t = fa -> fa -> ch[0] == fa ? 0 : 1;
+			bool t = (fa -> fa -> ch[0] == fa ? 0 : 1);
 			if (fa -> ch[t] == this) fa -> rotate(), rotate();
 			else rotate(), rotate();
 		}
@@ -92,9 +92,9 @@ Node* Node::find_key(LL rnk)
 {
 	Node *x = this;
 	while (true) {
-		if (x -> ch[0] == NULL ? 1 : x -> ch[0] -> sz + 1 == rnk) return x;
-		else if (x -> ch[0] == NULL ? 1 : x -> ch[0] -> sz + 1 <  rnk) {
-			rnk -= x -> ch[0] == NULL ? 1 : x -> ch[0] -> sz + 1;
+		if ((x -> ch[0] == NULL ? 1 : x -> ch[0] -> sz + 1) == rnk) return x;
+		else if ((x -> ch[0] == NULL ? 1 : x -> ch[0] -> sz + 1) < rnk) {
+			rnk -= (x -> ch[0] == NULL ? 1 : x -> ch[0] -> sz + 1);
 			x = x -> ch[1];
 		}
 		else x = x -> ch[0];
@@ -107,6 +107,7 @@ void Node::insert(LL now, LL now2)
 		Node *hr = new Node;
 		hr -> ch[0] = hr -> ch[1] = hr -> fa = NULL;
 		hr -> data1 = now; hr -> data2 = now2; treap = hr; treap -> update();
+		return;
 	}
 	LL rnk = treap -> get_rnk(now);
 	if (rnk == 0) {
@@ -148,31 +149,34 @@ void Node::update()
 	sz = 1;
 	sum1 = data1 * data2 % MOD;
 	sum2 = (data1 * (data1 + 1) / 2) * data2 % MOD;
+	sum3 = data2;
 
 	if (ch[0] != NULL) {
 		sz += ch[0] -> sz;
 		sum1 = (sum1 + ch[0] -> sum1) % MOD;
 		sum2 = (sum2 + ch[0] -> sum2) % MOD;
+		sum3 = (sum3 + ch[0] -> sum3) % MOD;
 	}
 	if (ch[1] != NULL) {
 		sz += ch[1] -> sz;
 		sum1 = (sum1 + ch[1] -> sum1) % MOD;
 		sum2 = (sum2 + ch[1] -> sum2) % MOD;
+		sum3 = (sum3 + ch[1] -> sum3) % MOD;
 	}
 }
 
 int main()
 {
 	freopen("cross.in", "r", stdin);
-	//freopen("cross.out", "w", stdout);
+	freopen("cross.out", "w", stdout);
 	
 	in(r); in(c); in(n);
 
-	FOR(i, 0, r) {
-		lr[i].reserve(c + 1);
-		tp[i].reserve(c + 1);
-		co[i].reserve(c + 1);
-		line[i].reserve(c + 1);
+	FOR(i, 0, r + 1) {
+		lr[i].resize(c + 2);
+		tp[i].resize(c + 2);
+		co[i].resize(c + 2);
+		line[i].resize(c + 2);
 	}
 
 	FOR(i, 1, r) FOR(j, 1, c) line[i][j] = 1;
@@ -221,6 +225,13 @@ int main()
 		}
 
 		FOR(i, 1, r) {
+			if (i > 2) {
+				if (lr[i - 2][j] != 0 && line[i - 1][j]) {
+					treap -> insert(lr[i - 2][j], tp[i - 2][j]);
+					is_cleared = false;
+				}
+			}
+			
 			if (!line[i][j]) {
 				if (!is_cleared) {
 					treap -> clear();
@@ -232,7 +243,7 @@ int main()
 
 			LL now = lr[i][j];
 			
-			if (treap != NULL) {
+			if (now && treap != NULL) {
 				LL rnk = treap -> get_rnk(now);
 				if (rnk != 0) {
 					Node *hr;
@@ -250,14 +261,21 @@ int main()
 					ans = (ans + fst - sec) % MOD;
 				}
 
-				LL size = (treap -> sz - rnk) * co[i][j] % MOD;
-				LL valu = (now * now - now * (now + 1) / 2) * co[i][j] % MOD;
-				ans = (ans + 1ll * size * valu % MOD) % MOD;
-			}
-
-			if (i != 1) {
-				if (lr[i - 1][j] != 0)
-					treap -> insert(lr[i - 1][j], tp[i - 1][j]);
+				if (rnk != treap -> sz) {
+					Node *hr;
+					if (rnk != 0) {
+						treap -> find_key(rnk) -> splay(NULL);
+						treap -> find_key(rnk + 1) -> splay(treap);
+						hr = treap -> ch[1];
+					}
+					else {
+						treap -> find_key(rnk + 1) -> splay(NULL);
+						hr = treap;
+					}
+					LL valu =
+						(now * now - now * (now + 1) / 2) * co[i][j] % MOD;
+					ans = (ans + hr -> sum3 * valu % MOD) % MOD;
+				}
 			}
 		}
 	}
