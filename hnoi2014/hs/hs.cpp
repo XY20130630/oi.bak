@@ -19,7 +19,7 @@ template <typename Tp> Tp chkmin(Tp &x, Tp y) {return x < y ? x : x=y;}
 template <typename Tp> Tp Max(Tp x, Tp y) {return x > y ? x : y;}
 template <typename Tp> Tp Min(Tp x, Tp y) {return x < y ? x : y;}
 
-const int MAXN = 100010;
+const int MAXN = 2000010;
 
 using std::string;
 using std::cin;
@@ -30,6 +30,8 @@ int t, n, len[MAXN];
 ULL hs[MAXN];
 const ULL BASE = 31;
 
+int prefix[MAXN], suffix[MAXN], numb[MAXN];
+
 void gethash(int num)
 {
 	hs[num] = 0;
@@ -38,8 +40,115 @@ void gethash(int num)
 	}
 }
 
+bool isop[MAXN];
+int nopera[MAXN];
+
+ULL rhs[MAXN], po[MAXN];
+
+ULL power(ULL x, ULL y)
+{
+	if (!y) return 1;
+	return po[y];
+}
+
+void work()
+{
+	string *a = str;
+	
+	FOR(i, 1, nopera[0])
+		isop[nopera[i]] = false;
+	
+	nopera[0] = 0;
+	
+	FOR(i, 1, n) {
+		bool flag = true;
+		FOR(j, 0, len[i] - 1) {
+			if (str[i][j] == '*') {
+				flag = false;
+				break;
+			}
+		}
+		if (flag) {
+			isop[i] = true;
+			nopera[++nopera[0]] = i;
+		}
+	}
+	FOR(i, 2, nopera[0]) {
+		if (hs[nopera[i]] != hs[nopera[i - 1]]) {
+			puts("N");
+			return;
+		}
+	}
+
+	int need_compare = nopera[1];
+	ULL TBASE = 1;
+
+	FOR(i, 1, len[need_compare]) {
+		rhs[i] = rhs[i - 1] + str[need_compare][i - 1] * TBASE;
+		TBASE = TBASE * BASE;
+	}
+	
+	FOR(i, 1, n) if (!isop[i]) {
+		int lastpos = 0;
+		for (int j = 0, k; j <= len[i] - 1; j = k + 1) {
+			k = j;
+			while (k < len[i] && str[i][k] == '*') k++;
+
+			j = k;
+			while (k < len[i] && str[i][k] != '*') k++; k--;
+			
+			if (str[i][k] == '*') break;
+
+			ULL nowhs = 0, TBASE = 1;
+			FOR(l, j, k) {
+				nowhs = nowhs + str[i][l] * TBASE;
+				TBASE = TBASE * BASE;
+			}
+
+			while (true) {
+				if (lastpos + (k - j + 1) > len[need_compare]) {
+					puts("N");
+					return;
+				}
+				if (k == len[i] - 1) {
+					lastpos = len[need_compare] - (k - j + 1);
+				}
+				ULL tmpnow = nowhs;
+				if (rhs[lastpos + (k - j + 1)] - rhs[lastpos] == tmpnow * power(31, lastpos)) {
+					lastpos += (k - j + 1);
+					break;
+				}
+				if (j != 0) {
+					lastpos++;
+				}
+				else {
+					puts("N");
+					return;
+				}
+			}
+		}
+	}
+	puts("Y");
+}
+
+bool cmp_prefix(int x, int y)
+{
+	return prefix[x] < prefix[y];
+}
+
+bool cmp_suffix(int x, int y)
+{
+	return suffix[x] < suffix[y];
+}
+
 int main()
 {
+	freopen("hs.in", "r", stdin);
+	freopen("hs.out", "w", stdout);
+	
+	po[0] = 1;
+	FOR(i, 1, 2000000) po[i] = po[i - 1] * BASE;
+	
 	std::ios::sync_with_stdio(false);  
 	cin >> t;
 	while (t--) {
@@ -53,7 +162,7 @@ int main()
 			FOR(j, 0, len[i] - 1) {
 				if (str[i][j] == '*') isn = false, iss = true;
 			}
-//			FOR(j, 0
+			if (!iss) isy = false;
 		}
 
 		if (isn) {
@@ -68,43 +177,47 @@ int main()
 		}
 
 		else if (isy) {
-			int prefix = 0x3f3f3f3f, suffix = -1;
 			FOR(i, 1, n) {
 				FOR(j, 0, len[i] - 1) {
 					if (str[i][j] == '*') {
-						chkmin(prefix, j - 1); break;
+						prefix[i] = j; break;
 					}
 				}
 				DNF(j, len[i] - 1, 0) {
 					if (str[i][j] == '*') {
-						chkmax(suffix, j + 1); break;
+						suffix[i] = len[i] - 1 - j; break;
 					}
 				}
 			}
-			bool flag = false;
+			bool flag = true;
+			FOR(i, 1, n) numb[i] = i;
+			std::sort(numb + 1, numb + n + 1, cmp_prefix);
 			FOR(i, 2, n) {
-				FOR(j, 0, prefix) {
-					if (str[i][j] != str[i - 1][j]) {
-						flag = true; break;
+				int last = numb[i - 1], now = numb[i];
+				FOR(j, 1, prefix[last]) {
+					if (str[last][j - 1] != str[now][j - 1]) {
+						flag = false; puts("N"); break;
 					}
 				}
-				if (flag) {
-					puts("N");
-					break;
-				}
-				DNF(j, len[i] - 1, suffix) {
-					if (str[i][j] != str[i - 1][j]) {
-						flag = true; break;
-					}
-				}
-				if (flag) {
-					puts("N");
-					break;
-				}
+				if (!flag) break;
 			}
-			if (!flag)
-				puts("Y");
+			if (!flag) continue;
+			std::sort(numb + 1, numb + n + 1, cmp_suffix);
+			FOR(i, 2, n) {
+				int last = numb[i - 1], now = numb[i];
+				FOR(j, 1, suffix[last]) {
+					if (str[last][len[last] - j] != str[now][len[now] - j]) {
+						flag = false; puts("N"); break;
+					}
+				}
+				if (!flag) break;
+			}
+			if (flag) puts("Y");
 			continue;
+		}
+
+		else {
+			work();
 		}
 	}
 	return 0;
